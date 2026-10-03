@@ -1,17 +1,11 @@
 package com.netsimon.leve.config
 
+import android.content.Context
+import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
-/**
- * Perfis de servidor (operadoras/rotas) do app.
- *
- * Config em JSON de texto cru (constante PROFILES_JSON abaixo), editável
- * direto no Android Studio — sem Base64 por enquanto, pra facilitar os testes.
- * Lembre que texto cru aparece de bandeja em ferramentas tipo MT Manager/apktool;
- * quando a config estabilizar dá pra voltar a ofuscar (Base64 fragmentado).
- * Senhas de usuário final continuam vindas do painel via CheckUser, nunca daqui.
- */
 enum class ServerMode {
     VLESS_XHTTP, SSH_DIRECT, SSL_PROXY, SLOWDNS, SSH_BHTTP
 }
@@ -23,10 +17,9 @@ data class ServerProfile(
     val category: String,
     val active: Boolean,
     val visible: Boolean,
-    val server: String,          // pode conter múltiplos hosts separados por '#' (rotate)
+    val server: String,
     val port: Int,
-    // --- VLESS_XHTTP ---
-    val uuid: String? = null,    // fixo REMOVIDO em modo de teste (opcao A) -- ver uuidOverride em XhttpManager
+    val uuid: String? = null,
     val xhttpMode: String? = null,
     val pcs: String? = null,
     val security: String? = null,
@@ -35,18 +28,11 @@ data class ServerProfile(
     val hostHeader: String? = null,
     val fp: String? = null,
     val allowInsecure: Boolean = false,
-    // --- SSH_DIRECT / SSL_PROXY ---
     val payload: String? = null,
     val proxyHost: String? = null,
     val proxyPort: Int? = null,
-    // --- SLOWDNS (reservado) ---
     val nameserver: String? = null,
     val publicKey: String? = null,
-    // --- SSH_BHTTP ---
-    // Transporte BHTTP: janelas paralelas de upload (1..16) e download
-    // (1..32); batch fixo de 8. Os defaults abaixo são os mesmos do perfil
-    // BHTTP que funciona em outro app; o chunk de download é só o PEDIDO —
-    // a calibração automática cai pro que o servidor aceitar.
     val bhttpUploadSlots: Int = 16,
     val bhttpDownloadSlots: Int = 32,
     val bhttpDownloadChunk: Int = 50000,
@@ -55,7 +41,6 @@ data class ServerProfile(
     val bhttpProbeMs: Int = 5000,
     val bhttpMaxAttempts: Int = 10,
     val bhttpRetryBackoffMs: Int = 150,
-    // --- comuns ---
     val sni: String? = null,
     val dns1: String? = null,
     val dns2: String? = null,
@@ -64,391 +49,190 @@ data class ServerProfile(
 
 object ServerProfiles {
 
-    // Perfis em JSON cru. O perfil "BHTTP TIM" (fim da lista) é o SSH_BHTTP.
-    // Não use a mesma "category" dele em outros perfis: category define o
-    // grupo de rotate, e misturaria o BHTTP com os perfis VLESS/SSH.
-    private const val PROFILES_JSON = """
-[  
-  {
-    "name": "TIM VALIDO",
-    "description": "consulte o saldo ligando para *222#",
-    "mode": "SSL_PROXY",
-    "category": "TIM",
-    "active": true,
-    "visible": true,
-    "server": "tim.netsimon.online",
-    "port": 443,
-    "proxyHost": "162.247.241.4",
-    "proxyPort": 443,
-    "payload": "GET / HTTP/1.1[lf]Host: tim.netsimon.online[lf]Upgrade: websocket[lf][lf]",
-    "sni": "tim.netsimon.online",
-    "dns1": "8.8.8.8",
-    "dns2": "8.8.4.4",
-    "urlCheckUser": ""
-  },
-  {
-    "name": "TIM EXPIRADO",
-    "description": "consulte o saldo ligando para *222#",
-    "mode": "SSL_PROXY",
-    "category": "TIM",
-    "active": true,
-    "visible": true,
-    "server": "d1puep35xu9mga.cloudfront.net",
-    "port": 443,
-    "proxyHost": "3.174.27.114",
-    "proxyPort": 443,
-    "payload": "GET / HTTP/1.1[lf]Host: [rotate=d1puep35xu9mga.cloudfront.net;d2onx628d70s0h.cloudfront.net;d39ejv13mnhxwn.cloudfront.net][lf]Backend: [lf]Connection: Upgrade[lf]Upgrade: Websocket[lf][lf]",
-    "sni": "d1puep35xu9mga.cloudfront.net",
-    "dns1": "8.8.8.8",
-    "dns2": "8.8.4.4",
-    "urlCheckUser": ""
-  },  
-  {
-    "name": "TIM EXPIRADO 2",
-    "description": "consulte o saldo ligando para *222#",
-    "mode": "SSL_PROXY",
-    "category": "TIM",
-    "active": true,
-    "visible": true,
-    "server": "d1puep35xu9mga.cloudfront.net",
-    "port": 443,
-    "proxyHost": "3.174.27.114",
-    "proxyPort": 443,
-    "payload": "GET / HTTP/1.1[lf]Host: d1puep35xu9mga.cloudfront.net[lf]Backend: [lf]Connection: Upgrade[lf]Upgrade: Websocket[lf][lf]",
-    "sni": "d1puep35xu9mga.cloudfront.net",
-    "dns1": "8.8.8.8",
-    "dns2": "8.8.4.4",
-    "urlCheckUser": ""
-  },
-  {
-    "name": "TIM BHTTP 1",
-    "description": "SSH_BHTTP",
-    "mode": "SSH_BHTTP",
-    "category": "server",
-    "active": true,
-    "visible": true,
-    "server": "151.244.242.234",
-    "port": 80,
-    "dns1": "8.8.8.8",
-    "dns2": "8.8.4.4",
-    "urlCheckUser": null,
-    "bhttpUploadSlots": 16,
-    "bhttpDownloadSlots": 32,
-    "bhttpDownloadChunk": 50000,
-    "bhttpConnectMs": 10000,
-    "bhttpReadMs": 25000,
-    "bhttpProbeMs": 5000,
-    "bhttpMaxAttempts": 10,
-    "bhttpRetryBackoffMs": 150
-  },  
-  {
-    "name": "TIM BHTTP 2",
-    "description": "SSH_BHTTP",
-    "mode": "SSH_BHTTP",
-    "category": "server",
-    "active": true,
-    "visible": true,
-    "server": "147.15.102.170",
-    "port": 80,
-    "dns1": "8.8.8.8",
-    "dns2": "8.8.4.4",
-    "urlCheckUser": null,
-    "bhttpUploadSlots": 16,
-    "bhttpDownloadSlots": 32,
-    "bhttpDownloadChunk": 50000,
-    "bhttpConnectMs": 10000,
-    "bhttpReadMs": 25000,
-    "bhttpProbeMs": 5000,
-    "bhttpMaxAttempts": 10,
-    "bhttpRetryBackoffMs": 150
-  },
-  {
-    "name": "VIVO PLANOS",
-    "description": "easy-controle-pós",
-    "mode": "SSH_DIRECT",
-    "category": "VIVO",
-    "active": true,
-    "visible": true,
-    "server": "162.159.140.159#172.66.0.157#104.26.12.205#104.17.70.206#141.193.213.10#101espn.com#104.18.15.102",
-    "port": 80,
-    "payload": "GET / HTTP/1.1[crlf]Host: [rotate=1.netsimon.online;2.netsimon.online][crlf]Upgrade: Websocket[crlf]Connection: Keep-Alive[crlf]Connection: Keep-Alive[crlf]Upgrade: websocket[crlf][crlf]",
-    "sni": null,
-    "dns1": "1.1.1.1",
-    "dns2": "8.8.8.8",
-    "urlCheckUser": ""
-  },
-  {
-    "name": "VIVO PLANOS 2",
-    "description": "easy-controle-pós",
-    "mode": "SSH_DIRECT",
-    "category": "VIVO",
-    "active": true,
-    "visible": true,
-    "server": "162.159.140.159#172.66.0.157#104.26.12.205#104.17.70.206#141.193.213.10#101espn.com#104.18.15.102",
-    "port": 8080,
-    "payload": "GET / HTTP/1.1[crlf]Host: [rotate=1.netsimon.online;2.netsimon.online][crlf]Connection: Upgrade[crlf]Upgrade: Websocket[crlf][crlf]",
-    "sni": null,
-    "dns1": "8.8.8.8",
-    "dns2": "8.8.4.4",
-    "urlCheckUser": ""
-  },
-  {
-    "name": "Vivo Planos ssl",
-    "description": "easy-controle-pós",
-    "mode": "SSL_PROXY",
-    "category": "VIVO",
-    "active": true,
-    "visible": true,
-    "server": "162.159.140.159#172.66.0.157#104.26.12.205#104.17.70.206#141.193.213.10#101espn.com#104.18.15.102",
-    "port": 443,
-    "proxyHost": "162.159.140.159#172.66.0.157#104.26.12.205#104.17.70.206#141.193.213.10#101espn.com#104.18.15.102#1.netsimon.online#2.netsimon.online",
-    "proxyPort": 443,
-    "payload": "GET / HTTP/1.1[crlf]Host: [rotate=1.netsimon.online;2.netsimon.online][crlf]Connection: Upgrade[crlf]Upgrade: Websocket[crlf][crlf]",
-    "sni": "1.netsimon.online",
-    "dns1": "8.8.8.8",
-    "dns2": "8.8.4.4",
-    "urlCheckUser": ""
-  },
-  {
-    "name": "Vivo Planos ssl 2",
-    "description": "easy-controle-pós",
-    "mode": "SSL_PROXY",
-    "category": "VIVO",
-    "active": true,
-    "visible": true,
-    "server": "162.159.140.159#172.66.0.157#104.26.12.205#104.17.70.206#141.193.213.10#101espn.com#104.18.15.102",
-    "port": 8443,
-    "proxyHost": "162.159.140.159#172.66.0.157#104.26.12.205#104.17.70.206#141.193.213.10#101espn.com#104.18.15.102#1.netsimon.online#2.netsimon.online",
-    "proxyPort": 8443,
-    "payload": "GET / HTTP/1.1[crlf]Host: [rotate=1.netsimon.online;2.netsimon.online][crlf]Connection: Upgrade[crlf]Upgrade: Websocket[crlf][crlf]",
-    "sni": "1.netsimon.online",
-    "dns1": "8.8.8.8",
-    "dns2": "8.8.4.4",
-    "urlCheckUser": ""
-  },
-  {
-    "name": "Vivo Pré",
-    "description": "Teste se tiver login na rede",
-    "mode": "SSH_DIRECT",
-    "category": "VIVO",
-    "active": true,
-    "visible": true,
-    "server": "1.netsimon.online#2.netsimon.online#151.244.242.234#172.66.0.157#151.244.242.221#144.22.230.41#168.138.128.17#162.159.140.159",
-    "port": 80,
-    "payload": "GET / HTTP/1.1[lf]Host: [rotate=1.netsimon.online;2.netsimon.online][lf]Upgrade: Websocket[lf][lf]",
-    "sni": null,
-    "dns1": "1.1.1.1",
-    "dns2": "8.8.8.8",
-    "urlCheckUser": ""
-  },
-  {
-    "name": "Vivo Pré 2",
-    "description": "Teste se tiver login na rede",
-    "mode": "SSH_DIRECT",
-    "category": "VIVO",
-    "active": true,
-    "visible": true,
-    "server": "1.netsimon.online#2.netsimon.online#151.244.242.234#172.66.0.157#151.244.242.221#144.22.230.41#168.138.128.17#162.159.140.159",
-    "port": 8080,
-    "payload": "GET / HTTP/1.1[lf]Host: [rotate=1.netsimon.online;2.netsimon.online][lf]Upgrade: Websocket[lf][lf]#ACL / HTTP/1.1[lf]Host: [rotate=portal.vivo.com.br][crlf][crlf]",
-    "sni": null,
-    "dns1": "1.1.1.1",
-    "dns2": "8.8.8.8",
-    "urlCheckUser": ""
-  },
-  {
-    "name": "CLARO🐌",
-    "description": "🐌conexão lenta🐌",
-    "mode": "SLOWDNS",
-    "category": "CLARO",
-    "active": false,
-    "visible": false,
-    "server": "127.0.0.1",
-    "port": 53,
-    "nameserver": "ns1.netsimon.online",
-    "publicKey": "04c802e43fe9e61afac4b6d41e5925787f3795c23ca684d320f13837ed120230",
-    "sni": null,
-    "dns1": "1.1.1.1",
-    "dns2": "8.8.8.8",
-    "urlCheckUser": ""
-  },
-  {
-    "name": "Claro Planos 1",
-    "description": "8443",
-    "mode": "SSL_PROXY",
-    "category": "CLARO",
-    "active": true,
-    "visible": true,
-    "server": "1.netsimon.online#5.netsimon.online",
-    "port": 8443,
-    "proxyHost": "1.netsimon.online#2.netsimon.online",
-    "proxyPort": 443,
-    "payload": "GET / HTTP/1.1[crlf]Host: [rotate=1.netsimon.online;2.netsimon.online][crlf]Upgrade: Websocket[crlf]Connection: Keep-Alive[crlf]Connection: Keep-Alive[crlf]Upgrade: websocket[crlf][crlf]#CONNECT 127.0.0.1:80[split][crlf]ACL / HTTP/1.1[crlf]Upgrade: websocket[crlf][crlf]",
-    "sni": "dns.web.whatsapp.com",
-    "dns1": "1.1.1.1",
-    "dns2": "8.8.8.8",
-    "urlCheckUser": ""
-  },
-  {
-    "name": "Claro Planos 2",
-    "description": "2053",
-    "mode": "SSL_PROXY",
-    "category": "CLARO",
-    "active": true,
-    "visible": true,
-    "server": "1.netsimon.online#2.netsimon.online",
-    "port": 2053,
-    "proxyHost": "1.netsimon.online#2.netsimon.online",
-    "proxyPort": 8443,
-    "payload": "",
-    "sni": "whatsapp.com",
-    "dns1": "1.1.1.1",
-    "dns2": "8.8.8.8",
-    "urlCheckUser": ""
-  },
-  {
-    "name": "Claro Planos 3",
-    "description": "8443",
-    "mode": "SSL_PROXY",
-    "category": "CLARO",
-    "active": true,
-    "visible": true,
-    "server": "1.netsimon.online#2.netsimon.online",
-    "port": 8443,
-    "proxyHost": "1.netsimon.online#2.netsimon.online",
-    "proxyPort": 8443,
-    "payload": "",
-    "sni": "m.waze.com",
-    "dns1": "1.1.1.1",
-    "dns2": "8.8.8.8",
-    "urlCheckUser": ""
-  },
-  {
-    "name": "Claro Planos 4",
-    "description": "2053",
-    "mode": "SSL_PROXY",
-    "category": "CLARO",
-    "active": true,
-    "visible": true,
-    "server": "1.netsimon.online#5.netsimon.online",
-    "port": 2053,
-    "proxyHost": "1.netsimon.online#5.netsimon.online",
-    "proxyPort": 2053,
-    "payload": "",
-    "sni": "musicaclaro.com.br",
-    "dns1": "1.1.1.1",
-    "dns2": "8.8.8.8",
-    "urlCheckUser": ""
-  },
-  {
-    "name": "SlowDNS (aguardando motor)",
-    "description": "Reservado - motor SlowDNS ainda nao implementado no app",
-    "mode": "SLOWDNS",
-    "category": "RESERVADO",
-    "active": false,
-    "visible": false,
-    "server": "PREENCHER_NAMESERVER",
-    "port": 5300,
-    "nameserver": "PREENCHER_NS",
-    "publicKey": "PREENCHER_PUBKEY",
-    "sni": null,
-    "dns1": "1.1.1.1",
-    "dns2": "8.8.8.8",
-    "urlCheckUser": null
-  },  
-  {
-    "name": "TIM",
-    "description": "VLESS xHTTP — Servidor 1",
-    "mode": "VLESS_XHTTP",
-    "category": "TIM",
-    "active": false,
-    "visible": false,
-    "server": "179.191.168.49",
-    "port": 443,
-    "xhttpMode": "packet-up",
-    "pcs": "c4e6786020181abfb4010c0608ede0f22faa0820ee2c76aa471b5f26a27c99c5",
-    "security": "tls",
-    "alpn": "h3,h2,http/1.1",
-    "encryption": "none",
-    "hostHeader": "xray9.azion.app",
-    "fp": "random",
-    "sni": "www.tim.com.br",
-    "allowInsecure": true,
-    "urlCheckUser": null
-  }
-]
-"""
+    // JSON dos perfis embutido em Base64 (UTF-8), em fragmentos de até 2048 caracteres.
+    // Gerado a partir do JSON original; para atualizar, substitua o conteúdo de listOf(...).
+    private val PROFILES_PARTS = listOf(
+        "ClsgIAogIHsKICAidmVyc2lvbiI6ICIxLjAiLAogICJwcm9maWxlcyI6IFsKICAgIHsKICAgICAgIm5hbWUiOiAiVElNIEJIVFRQIDEiLAogICAgICAiZGVzY3JpcHRpb24iOiAiU1NIX0JIVFRQIiwKICAgICAgIm1vZGUiOiAiU1NIX0JIVFRQIiwKICAgICAgImNhdGVnb3J5IjogIkJIVFRQIiwKICAgICAgImFjdGl2ZSI6IHRydWUsCiAgICAgICJ2aXNpYmxlIjogdHJ1ZSwKICAgICAgInNlcnZlciI6ICIxNTEuMjQ0LjI0Mi4yMzQiLAogICAgICAicG9ydCI6IDgwLAogICAgICAiZG5zMSI6ICI4LjguOC44IiwKICAgICAgImRuczIiOiAiOC44LjQuNCIsCiAgICAgICJ1cmxDaGVja1VzZXIiOiBudWxsLAogICAgICAiYmh0dHBVcGxvYWRTbG90cyI6IDE2LAogICAgICAiYmh0dHBEb3dubG9hZFNsb3RzIjogNiwKICAgICAgImJodHRwRG93bmxvYWRDaHVuayI6IDUwMDAwLAogICAgICAiYmh0dHBDb25uZWN0TXMiOiAxMDAwMCwKICAgICAgImJodHRwUmVhZE1zIjogMjUwMDAsCiAgICAgICJiaHR0cFByb2JlTXMiOiA1MDAwLAogICAgICAiYmh0dHBNYXhBdHRlbXB0cyI6IDEwLAogICAgICAiYmh0dHBSZXRyeUJhY2tvZmZNcyI6IDE1MAogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiVElNIEJIVFRQIDIiLAogICAgICAiZGVzY3JpcHRpb24iOiAiU1NIX0JIVFRQIiwKICAgICAgIm1vZGUiOiAiU1NIX0JIVFRQIiwKICAgICAgImNhdGVnb3J5IjogIkJIVFRQIiwKICAgICAgImFjdGl2ZSI6IHRydWUsCiAgICAgICJ2aXNpYmxlIjogdHJ1ZSwKICAgICAgInNlcnZlciI6ICIxNDcuMTUuMTAyLjE3MCIsCiAgICAgICJwb3J0IjogODAsCiAgICAgICJkbnMxIjogIjguOC44LjgiLAogICAgICAiZG5zMiI6ICI4LjguNC40IiwKICAgICAgInVybENoZWNrVXNlciI6IG51bGwsCiAgICAgICJiaHR0cFVwbG9hZFNsb3RzIjogMTYsCiAgICAgICJiaHR0cERvd25sb2FkU2xvdHMiOiAzMiwKICAgICAgImJodHRwRG93bmxvYWRDaHVuayI6IDUwMDAwLAogICAgICAiYmh0dHBDb25uZWN0TXMiOiAxMDAwMCwKICAgICAgImJodHRwUmVhZE1zIjogMjUwMDAsCiAgICAgICJiaHR0cFByb2JlTXMiOiA1MDAwLAogICAgICAiYmh0dHBNYXhBdHRlbXB0cyI6IDEwLAogICAgICAiYmh0dHBSZXRyeUJhY2tvZmZNcyI6IDE1MAogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiVElNIFZBTElETyIsCiAgICAgICJkZXNjcmlwdGlvbiI6ICJjb25zdWx0ZSBvIHNhbGRvIGxpZ2FuZG8gcGFyYSAqMjIyIyIsCiAgICAgICJtb2RlIjogIlNTTF9QUk9YWSIsCiAgICAgICJjYXRlZ29yeSI6ICJUSU0iLAogICAgICAiYWN0aXZlIjogdHJ1ZSwKICAgICAgInZpc2libGUiOiB0cnVlLAogICAgICAic2VydmVyIjogInRpbS5uZXRzaW1vbi5vbmxpbmUiLAogICAgICAicG9ydCI6IDQ0MywKICAgICAgInByb3h5SG9zdCI6ICIxNjIuMjQ3LjI0MS40IiwKICAgICAgInByb3h5UG9ydCI6IDQ0MywKICAgICAgInBheWxvYWQiOiAiR0VUIC8gSFRUUC8xLjFbbGZdSG9zdDogdGltLm5ldHNpbW9uLm9ubGluZVtsZl1VcGdyYWRlOiB3ZWJz",
+        "b2NrZXRbbGZdW2xmXSIsCiAgICAgICJzbmkiOiAidGltLm5ldHNpbW9uLm9ubGluZSIsCiAgICAgICJkbnMxIjogIjguOC44LjgiLAogICAgICAiZG5zMiI6ICI4LjguNC40IiwKICAgICAgInVybENoZWNrVXNlciI6ICIiCiAgICB9LAogICAgewogICAgICAibmFtZSI6ICJUSU0gRVhQSVJBRE8iLAogICAgICAiZGVzY3JpcHRpb24iOiAiY29uc3VsdGUgbyBzYWxkbyBsaWdhbmRvIHBhcmEgKjIyMiMiLAogICAgICAibW9kZSI6ICJTU0xfUFJPWFkiLAogICAgICAiY2F0ZWdvcnkiOiAiVElNIiwKICAgICAgImFjdGl2ZSI6IHRydWUsCiAgICAgICJ2aXNpYmxlIjogdHJ1ZSwKICAgICAgInNlcnZlciI6ICJkMXB1ZXAzNXh1OW1nYS5jbG91ZGZyb250Lm5ldCIsCiAgICAgICJwb3J0IjogNDQzLAogICAgICAicHJveHlIb3N0IjogIjMuMTc0LjI3LjExNCIsCiAgICAgICJwcm94eVBvcnQiOiA0NDMsCiAgICAgICJwYXlsb2FkIjogIkdFVCAvIEhUVFAvMS4xW2xmXUhvc3Q6IFtyb3RhdGU9ZDFwdWVwMzV4dTltZ2EuY2xvdWRmcm9udC5uZXQ7ZDJvbng2MjhkNzBzMGguY2xvdWRmcm9udC5uZXQ7ZDM5ZWp2MTNtbmh4d24uY2xvdWRmcm9udC5uZXRdW2xmXUJhY2tlbmQ6IFtsZl1Db25uZWN0aW9uOiBVcGdyYWRlW2xmXVVwZ3JhZGU6IFdlYnNvY2tldFtsZl1bbGZdIiwKICAgICAgInNuaSI6ICJkMXB1ZXAzNXh1OW1nYS5jbG91ZGZyb250Lm5ldCIsCiAgICAgICJkbnMxIjogIjguOC44LjgiLAogICAgICAiZG5zMiI6ICI4LjguNC40IiwKICAgICAgInVybENoZWNrVXNlciI6ICIiCiAgICB9LAogICAgewogICAgICAibmFtZSI6ICJUSU0gRVhQSVJBRE8gMiIsCiAgICAgICJkZXNjcmlwdGlvbiI6ICJjb25zdWx0ZSBvIHNhbGRvIGxpZ2FuZG8gcGFyYSAqMjIyIyIsCiAgICAgICJtb2RlIjogIlNTTF9QUk9YWSIsCiAgICAgICJjYXRlZ29yeSI6ICJUSU0iLAogICAgICAiYWN0aXZlIjogdHJ1ZSwKICAgICAgInZpc2libGUiOiB0cnVlLAogICAgICAic2VydmVyIjogImQxcHVlcDM1eHU5bWdhLmNsb3VkZnJvbnQubmV0IiwKICAgICAgInBvcnQiOiA0NDMsCiAgICAgICJwcm94eUhvc3QiOiAiMy4xNzQuMjcuMTE0IiwKICAgICAgInByb3h5UG9ydCI6IDQ0MywKICAgICAgInBheWxvYWQiOiAiR0VUIC8gSFRUUC8xLjFbbGZdSG9zdDogZDFwdWVwMzV4dTltZ2EuY2xvdWRmcm9udC5uZXRbbGZdQmFja2VuZDogW2xmXUNvbm5lY3Rpb246IFVwZ3JhZGVbbGZdVXBncmFkZTogV2Vic29ja2V0W2xmXVtsZl0iLAogICAgICAic25pIjogImQxcHVlcDM1eHU5bWdhLmNsb3VkZnJvbnQubmV0IiwKICAgICAgImRuczEiOiAiOC44LjguOCIsCiAgICAgICJkbnMyIjogIjguOC40LjQiLAogICAgICAidXJsQ2hlY2tVc2VyIjogIiIKICAgIH0sCiAgICB7CiAgICAgICJuYW1lIjogIlZJVk8gUExBTk9TIiwKICAgICAgImRlc2NyaXB0aW9uIjogImVhc3ktY29udHJvbGUtcMOzcyIsCiAgICAgICJtb2RlIjogIlNTSF9ESVJFQ1QiLAogICAgICAiY2F0ZWdvcnkiOiAiVklWTyIsCiAgICAgICJhY3RpdmUiOiB0cnVlLAog",
+        "ICAgICAidmlzaWJsZSI6IHRydWUsCiAgICAgICJzZXJ2ZXIiOiAiMTYyLjE1OS4xNDAuMTU5IzE3Mi42Ni4wLjE1NyMxMDQuMjYuMTIuMjA1IzEwNC4xNy43MC4yMDYjMTQxLjE5My4yMTMuMTAjMTAxZXNwbi5jb20jMTA0LjE4LjE1LjEwMiIsCiAgICAgICJwb3J0IjogODAsCiAgICAgICJwYXlsb2FkIjogIkdFVCAvIEhUVFAvMS4xW2NybGZdSG9zdDogW3JvdGF0ZT0xLm5ldHNpbW9uLm9ubGluZTsyLm5ldHNpbW9uLm9ubGluZV1bY3JsZl1VcGdyYWRlOiBXZWJzb2NrZXRbY3JsZl1Db25uZWN0aW9uOiBLZWVwLUFsaXZlW2NybGZdQ29ubmVjdGlvbjogS2VlcC1BbGl2ZVtjcmxmXVVwZ3JhZGU6IHdlYnNvY2tldFtjcmxmXVtjcmxmXSIsCiAgICAgICJzbmkiOiBudWxsLAogICAgICAiZG5zMSI6ICIxLjEuMS4xIiwKICAgICAgImRuczIiOiAiOC44LjguOCIsCiAgICAgICJ1cmxDaGVja1VzZXIiOiAiIgogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiVklWTyBQTEFOT1MgMiIsCiAgICAgICJkZXNjcmlwdGlvbiI6ICJlYXN5LWNvbnRyb2xlLXDDs3MiLAogICAgICAibW9kZSI6ICJTU0hfRElSRUNUIiwKICAgICAgImNhdGVnb3J5IjogIlZJVk8iLAogICAgICAiYWN0aXZlIjogdHJ1ZSwKICAgICAgInZpc2libGUiOiB0cnVlLAogICAgICAic2VydmVyIjogIjE2Mi4xNTkuMTQwLjE1OSMxNzIuNjYuMC4xNTcjMTA0LjI2LjEyLjIwNSMxMDQuMTcuNzAuMjA2IzE0MS4xOTMuMjEzLjEwIzEwMWVzcG4uY29tIzEwNC4xOC4xNS4xMDIiLAogICAgICAicG9ydCI6IDgwODAsCiAgICAgICJwYXlsb2FkIjogIkdFVCAvIEhUVFAvMS4xW2NybGZdSG9zdDogW3JvdGF0ZT0xLm5ldHNpbW9uLm9ubGluZTsyLm5ldHNpbW9uLm9ubGluZV1bY3JsZl1Db25uZWN0aW9uOiBVcGdyYWRlW2NybGZdVXBncmFkZTogV2Vic29ja2V0W2NybGZdW2NybGZdIiwKICAgICAgInNuaSI6IG51bGwsCiAgICAgICJkbnMxIjogIjguOC44LjgiLAogICAgICAiZG5zMiI6ICI4LjguNC40IiwKICAgICAgInVybENoZWNrVXNlciI6ICIiCiAgICB9LAogICAgewogICAgICAibmFtZSI6ICJWaXZvIFBsYW5vcyBzc2wiLAogICAgICAiZGVzY3JpcHRpb24iOiAiZWFzeS1jb250cm9sZS1ww7NzIiwKICAgICAgIm1vZGUiOiAiU1NMX1BST1hZIiwKICAgICAgImNhdGVnb3J5IjogIlZJVk8iLAogICAgICAiYWN0aXZlIjogdHJ1ZSwKICAgICAgInZpc2libGUiOiB0cnVlLAogICAgICAic2VydmVyIjogIjE2Mi4xNTkuMTQwLjE1OSMxNzIuNjYuMC4xNTcjMTA0LjI2LjEyLjIwNSMxMDQuMTcuNzAuMjA2IzE0MS4xOTMuMjEzLjEwIzEwMWVzcG4uY29tIzEwNC4xOC4xNS4xMDIiLAogICAgICAicG9ydCI6IDQ0MywKICAgICAgInByb3h5SG9zdCI6ICIxNjIuMTU5LjE0MC4xNTkjMTcyLjY2LjAuMTU3IzEwNC4yNi4xMi4yMDUjMTA0LjE3LjcwLjIwNiMxNDEuMTkzLjIxMy4xMCMxMDFlc3BuLmNvbSMxMDQuMTguMTUuMTAyIzEubmV0c2ltb24ub25saW5lIzIubmV0c2ltb24ub25saW5lIiwKICAgICAgInByb3h5UG9ydCI6IDQ0MywKICAgICAg",
+        "InBheWxvYWQiOiAiR0VUIC8gSFRUUC8xLjFbY3JsZl1Ib3N0OiBbcm90YXRlPTEubmV0c2ltb24ub25saW5lOzIubmV0c2ltb24ub25saW5lXVtjcmxmXUNvbm5lY3Rpb246IFVwZ3JhZGVbY3JsZl1VcGdyYWRlOiBXZWJzb2NrZXRbY3JsZl1bY3JsZl0iLAogICAgICAic25pIjogIjEubmV0c2ltb24ub25saW5lIiwKICAgICAgImRuczEiOiAiOC44LjguOCIsCiAgICAgICJkbnMyIjogIjguOC40LjQiLAogICAgICAidXJsQ2hlY2tVc2VyIjogIiIKICAgIH0sCiAgICB7CiAgICAgICJuYW1lIjogIlZpdm8gUGxhbm9zIHNzbCAyIiwKICAgICAgImRlc2NyaXB0aW9uIjogImVhc3ktY29udHJvbGUtcMOzcyIsCiAgICAgICJtb2RlIjogIlNTTF9QUk9YWSIsCiAgICAgICJjYXRlZ29yeSI6ICJWSVZPIiwKICAgICAgImFjdGl2ZSI6IHRydWUsCiAgICAgICJ2aXNpYmxlIjogdHJ1ZSwKICAgICAgInNlcnZlciI6ICIxNjIuMTU5LjE0MC4xNTkjMTcyLjY2LjAuMTU3IzEwNC4yNi4xMi4yMDUjMTA0LjE3LjcwLjIwNiMxNDEuMTkzLjIxMy4xMCMxMDFlc3BuLmNvbSMxMDQuMTguMTUuMTAyIiwKICAgICAgInBvcnQiOiA4NDQzLAogICAgICAicHJveHlIb3N0IjogIjE2Mi4xNTkuMTQwLjE1OSMxNzIuNjYuMC4xNTcjMTA0LjI2LjEyLjIwNSMxMDQuMTcuNzAuMjA2IzE0MS4xOTMuMjEzLjEwIzEwMWVzcG4uY29tIzEwNC4xOC4xNS4xMDIjMS5uZXRzaW1vbi5vbmxpbmUjMi5uZXRzaW1vbi5vbmxpbmUiLAogICAgICAicHJveHlQb3J0IjogODQ0MywKICAgICAgInBheWxvYWQiOiAiR0VUIC8gSFRUUC8xLjFbY3JsZl1Ib3N0OiBbcm90YXRlPTEubmV0c2ltb24ub25saW5lOzIubmV0c2ltb24ub25saW5lXVtjcmxmXUNvbm5lY3Rpb246IFVwZ3JhZGVbY3JsZl1VcGdyYWRlOiBXZWJzb2NrZXRbY3JsZl1bY3JsZl0iLAogICAgICAic25pIjogIjEubmV0c2ltb24ub25saW5lIiwKICAgICAgImRuczEiOiAiOC44LjguOCIsCiAgICAgICJkbnMyIjogIjguOC40LjQiLAogICAgICAidXJsQ2hlY2tVc2VyIjogIiIKICAgIH0sCiAgICB7CiAgICAgICJuYW1lIjogIlZpdm8gUHLDqSIsCiAgICAgICJkZXNjcmlwdGlvbiI6ICJUZXN0ZSBzZSB0aXZlciBsb2dpbiBuYSByZWRlIiwKICAgICAgIm1vZGUiOiAiU1NIX0RJUkVDVCIsCiAgICAgICJjYXRlZ29yeSI6ICJWSVZPIiwKICAgICAgImFjdGl2ZSI6IHRydWUsCiAgICAgICJ2aXNpYmxlIjogdHJ1ZSwKICAgICAgInNlcnZlciI6ICIxLm5ldHNpbW9uLm9ubGluZSMyLm5ldHNpbW9uLm9ubGluZSMxNTEuMjQ0LjI0Mi4yMzQjMTcyLjY2LjAuMTU3IzE1MS4yNDQuMjQyLjIyMSMxNDQuMjIuMjMwLjQxIzE2OC4xMzguMTI4LjE3IzE2Mi4xNTkuMTQwLjE1OSIsCiAgICAgICJwb3J0IjogODA4MCwKICAgICAgInBheWxvYWQiOiAiR0VUIC8gSFRUUC8xLjFbbGZdSG9zdDogW3JvdGF0ZT0xLm5ldHNpbW9uLm9ubGluZTsyLm5ldHNpbW9uLm9ubGluZV1bbGZdVXBncmFkZTogV2Vic29ja2V0W2xmXVtsZl0iLAogICAgICAic25pIjogbnVsbCwKICAgICAgImRuczEiOiAiMS4x",
+        "LjEuMSIsCiAgICAgICJkbnMyIjogIjguOC44LjgiLAogICAgICAidXJsQ2hlY2tVc2VyIjogIiIKICAgIH0sCiAgICB7CiAgICAgICJuYW1lIjogIlZpdm8gUHLDqSAyIiwKICAgICAgImRlc2NyaXB0aW9uIjogIlRlc3RlIHNlIHRpdmVyIGxvZ2luIG5hIHJlZGUiLAogICAgICAibW9kZSI6ICJTU0hfRElSRUNUIiwKICAgICAgImNhdGVnb3J5IjogIlZJVk8iLAogICAgICAiYWN0aXZlIjogdHJ1ZSwKICAgICAgInZpc2libGUiOiB0cnVlLAogICAgICAic2VydmVyIjogIjEubmV0c2ltb24ub25saW5lIzIubmV0c2ltb24ub25saW5lIzE1MS4yNDQuMjQyLjIzNCMxNzIuNjYuMC4xNTcjMTUxLjI0NC4yNDIuMjIxIzE0NC4yMi4yMzAuNDEjMTY4LjEzOC4xMjguMTcjMTYyLjE1OS4xNDAuMTU5IiwKICAgICAgInBvcnQiOiA4ODg4LAogICAgICAicGF5bG9hZCI6ICJHRVQgLyBIVFRQLzEuMVtsZl1Ib3N0OiBbcm90YXRlPTEubmV0c2ltb24ub25saW5lOzIubmV0c2ltb24ub25saW5lXVtsZl1VcGdyYWRlOiBXZWJzb2NrZXRbbGZdW2xmXSNBQ0wgLyBIVFRQLzEuMVtsZl1Ib3N0OiBbcm90YXRlPXBvcnRhbC52aXZvLmNvbS5icl1bY3JsZl1bY3JsZl0iLAogICAgICAic25pIjogbnVsbCwKICAgICAgImRuczEiOiAiMS4xLjEuMSIsCiAgICAgICJkbnMyIjogIjguOC44LjgiLAogICAgICAidXJsQ2hlY2tVc2VyIjogIiIKICAgIH0sCiAgICB7CiAgICAgICJuYW1lIjogIkNsYXJvIFBsYW5vcyAxIiwKICAgICAgImRlc2NyaXB0aW9uIjogIjg0NDMiLAogICAgICAibW9kZSI6ICJTU0xfUFJPWFkiLAogICAgICAiY2F0ZWdvcnkiOiAiQ0xBUk8iLAogICAgICAiYWN0aXZlIjogdHJ1ZSwKICAgICAgInZpc2libGUiOiB0cnVlLAogICAgICAic2VydmVyIjogIjEubmV0c2ltb24ub25saW5lIzUubmV0c2ltb24ub25saW5lIiwKICAgICAgInBvcnQiOiA4NDQzLAogICAgICAicHJveHlIb3N0IjogIjEubmV0c2ltb24ub25saW5lIzIubmV0c2ltb24ub25saW5lIiwKICAgICAgInByb3h5UG9ydCI6IDQ0MywKICAgICAgInBheWxvYWQiOiAiR0VUIC8gSFRUUC8xLjFbY3JsZl1Ib3N0OiBbcm90YXRlPTEubmV0c2ltb24ub25saW5lOzIubmV0c2ltb24ub25saW5lXVtjcmxmXVVwZ3JhZGU6IFdlYnNvY2tldFtjcmxmXUNvbm5lY3Rpb246IEtlZXAtQWxpdmVbY3JsZl1Db25uZWN0aW9uOiBLZWVwLUFsaXZlW2NybGZdVXBncmFkZTogd2Vic29ja2V0W2NybGZdW2NybGZdI0NPTk5FQ1QgMTI3LjAuMC4xOjgwW3NwbGl0XVtjcmxmXUFDTCAvIEhUVFAvMS4xW2NybGZdVXBncmFkZTogd2Vic29ja2V0W2NybGZdW2NybGZdIiwKICAgICAgInNuaSI6ICJkbnMud2ViLndoYXRzYXBwLmNvbSIsCiAgICAgICJkbnMxIjogIjEuMS4xLjEiLAogICAgICAiZG5zMiI6ICI4LjguOC44IiwKICAgICAgInVybENoZWNrVXNlciI6ICIiCiAgICB9LAogICAgewogICAgICAibmFtZSI6ICJDbGFybyBQbGFub3MgMiIsCiAgICAgICJkZXNjcmlwdGlvbiI6ICIyMDUzIiwKICAgICAgIm1vZGUiOiAiU1NMX1BST1hZIiwKICAgICAgImNh",
+        "dGVnb3J5IjogIkNMQVJPIiwKICAgICAgImFjdGl2ZSI6IHRydWUsCiAgICAgICJ2aXNpYmxlIjogdHJ1ZSwKICAgICAgInNlcnZlciI6ICIxLm5ldHNpbW9uLm9ubGluZSMyLm5ldHNpbW9uLm9ubGluZSIsCiAgICAgICJwb3J0IjogMjA1MywKICAgICAgInByb3h5SG9zdCI6ICIxLm5ldHNpbW9uLm9ubGluZSMyLm5ldHNpbW9uLm9ubGluZSIsCiAgICAgICJwcm94eVBvcnQiOiA4NDQzLAogICAgICAicGF5bG9hZCI6ICIiLAogICAgICAic25pIjogIndoYXRzYXBwLmNvbSIsCiAgICAgICJkbnMxIjogIjEuMS4xLjEiLAogICAgICAiZG5zMiI6ICI4LjguOC44IiwKICAgICAgInVybENoZWNrVXNlciI6ICIiCiAgICB9LAogICAgewogICAgICAibmFtZSI6ICJDbGFybyBQbGFub3MgMyIsCiAgICAgICJkZXNjcmlwdGlvbiI6ICI4NDQzIiwKICAgICAgIm1vZGUiOiAiU1NMX1BST1hZIiwKICAgICAgImNhdGVnb3J5IjogIkNMQVJPIiwKICAgICAgImFjdGl2ZSI6IHRydWUsCiAgICAgICJ2aXNpYmxlIjogdHJ1ZSwKICAgICAgInNlcnZlciI6ICIxLm5ldHNpbW9uLm9ubGluZSMyLm5ldHNpbW9uLm9ubGluZSIsCiAgICAgICJwb3J0IjogODQ0MywKICAgICAgInByb3h5SG9zdCI6ICIxLm5ldHNpbW9uLm9ubGluZSMyLm5ldHNpbW9uLm9ubGluZSIsCiAgICAgICJwcm94eVBvcnQiOiA4NDQzLAogICAgICAicGF5bG9hZCI6ICIiLAogICAgICAic25pIjogIm0ud2F6ZS5jb20iLAogICAgICAiZG5zMSI6ICIxLjEuMS4xIiwKICAgICAgImRuczIiOiAiOC44LjguOCIsCiAgICAgICJ1cmxDaGVja1VzZXIiOiAiIgogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiQ2xhcm8gUGxhbm9zIDQiLAogICAgICAiZGVzY3JpcHRpb24iOiAiMjA1MyIsCiAgICAgICJtb2RlIjogIlNTTF9QUk9YWSIsCiAgICAgICJjYXRlZ29yeSI6ICJDTEFSTyIsCiAgICAgICJhY3RpdmUiOiB0cnVlLAogICAgICAidmlzaWJsZSI6IHRydWUsCiAgICAgICJzZXJ2ZXIiOiAiMS5uZXRzaW1vbi5vbmxpbmUjNS5uZXRzaW1vbi5vbmxpbmUiLAogICAgICAicG9ydCI6IDIwNTMsCiAgICAgICJwcm94eUhvc3QiOiAiMS5uZXRzaW1vbi5vbmxpbmUjNS5uZXRzaW1vbi5vbmxpbmUiLAogICAgICAicHJveHlQb3J0IjogMjA1MywKICAgICAgInBheWxvYWQiOiAiIiwKICAgICAgInNuaSI6ICJtdXNpY2FjbGFyby5jb20uYnIiLAogICAgICAiZG5zMSI6ICIxLjEuMS4xIiwKICAgICAgImRuczIiOiAiOC44LjguOCIsCiAgICAgICJ1cmxDaGVja1VzZXIiOiAiIgogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiQ0xBUk/wn5CMIiwKICAgICAgImRlc2NyaXB0aW9uIjogIvCfkIxjb25leMOjbyBsZW50YfCfkIwiLAogICAgICAibW9kZSI6ICJTTE9XRE5TIiwKICAgICAgImNhdGVnb3J5IjogIkNMQVJPIiwKICAgICAgImFjdGl2ZSI6IGZhbHNlLAogICAgICAidmlzaWJsZSI6IGZhbHNlLAogICAgICAic2VydmVyIjogIjEyNy4wLjAuMSIsCiAgICAgICJwb3J0IjogNTMsCiAgICAgICJuYW1lc2VydmVyIjogIm5zMS5uZXRzaW1vbi5vbmxpbmUi",
+        "LAogICAgICAicHVibGljS2V5IjogIjA0YzgwMmU0M2ZlOWU2MWFmYWM0YjZkNDFlNTkyNTc4N2YzNzk1YzIzY2E2ODRkMzIwZjEzODM3ZWQxMjAyMzAiLAogICAgICAic25pIjogbnVsbCwKICAgICAgImRuczEiOiAiMS4xLjEuMSIsCiAgICAgICJkbnMyIjogIjguOC44LjgiLAogICAgICAidXJsQ2hlY2tVc2VyIjogIiIKICAgIH0sCiAgICB7CiAgICAgICJuYW1lIjogIlNsb3dETlMgKGFndWFyZGFuZG8gbW90b3IpIiwKICAgICAgImRlc2NyaXB0aW9uIjogIlJlc2VydmFkbyAtIG1vdG9yIFNsb3dETlMgYWluZGEgbmFvIGltcGxlbWVudGFkbyBubyBhcHAiLAogICAgICAibW9kZSI6ICJTTE9XRE5TIiwKICAgICAgImNhdGVnb3J5IjogIlJFU0VSVkFETyIsCiAgICAgICJhY3RpdmUiOiBmYWxzZSwKICAgICAgInZpc2libGUiOiBmYWxzZSwKICAgICAgInNlcnZlciI6ICJQUkVFTkNIRVJfTkFNRVNFUlZFUiIsCiAgICAgICJwb3J0IjogNTMwMCwKICAgICAgIm5hbWVzZXJ2ZXIiOiAiUFJFRU5DSEVSX05TIiwKICAgICAgInB1YmxpY0tleSI6ICJQUkVFTkNIRVJfUFVCS0VZIiwKICAgICAgInNuaSI6IG51bGwsCiAgICAgICJkbnMxIjogIjEuMS4xLjEiLAogICAgICAiZG5zMiI6ICI4LjguOC44IiwKICAgICAgInVybENoZWNrVXNlciI6IG51bGwKICAgIH0sCiAgICB7CiAgICAgICJuYW1lIjogIlRJTSIsCiAgICAgICJkZXNjcmlwdGlvbiI6ICJWTEVTUyB4SFRUUCDigJQgU2Vydmlkb3IgMSIsCiAgICAgICJtb2RlIjogIlZMRVNTX1hIVFRQIiwKICAgICAgImNhdGVnb3J5IjogIlRJTSIsCiAgICAgICJhY3RpdmUiOiBmYWxzZSwKICAgICAgInZpc2libGUiOiBmYWxzZSwKICAgICAgInNlcnZlciI6ICIxNzkuMTkxLjE2OC40OSIsCiAgICAgICJwb3J0IjogNDQzLAogICAgICAieGh0dHBNb2RlIjogInBhY2tldC11cCIsCiAgICAgICJwY3MiOiAiYzRlNjc4NjAyMDE4MWFiZmI0MDEwYzA2MDhlZGUwZjIyZmFhMDgyMGVlMmM3NmFhNDcxYjVmMjZhMjdjOTljNSIsCiAgICAgICJzZWN1cml0eSI6ICJ0bHMiLAogICAgICAiYWxwbiI6ICJoMyxoMixodHRwLzEuMSIsCiAgICAgICJlbmNyeXB0aW9uIjogIm5vbmUiLAogICAgICAiaG9zdEhlYWRlciI6ICJ4cmF5OS5hemlvbi5hcHAiLAogICAgICAiZnAiOiAicmFuZG9tIiwKICAgICAgInNuaSI6ICJ3d3cudGltLmNvbS5iciIsCiAgICAgICJhbGxvd0luc2VjdXJlIjogdHJ1ZSwKICAgICAgInVybENoZWNrVXNlciI6IG51bGwKICAgIH0KICBdCn0KCl0K"
+    )
 
-    /** Devolve o JSON dos perfis (antes vinha de Base64 fragmentado). */
-    private fun decodeJson(): String = PROFILES_JSON
-
-    /** Todos os perfis, incluindo os marcados como inativos/ocultos (ex: SlowDNS). */
-    fun getAllProfiles(): List<ServerProfile> {
-        val arr = JSONArray(decodeJson())
-        val result = mutableListOf<ServerProfile>()
-        for (i in 0 until arr.length()) {
-            val o: JSONObject = arr.getJSONObject(i)
-            result.add(
-                ServerProfile(
-                    name = o.getString("name"),
-                    description = o.optString("description", ""),
-                    mode = ServerMode.valueOf(o.getString("mode")),
-                    category = o.optString("category", ""),
-                    active = o.optBoolean("active", true),
-                    visible = o.optBoolean("visible", true),
-                    server = o.getString("server"),
-                    port = o.getInt("port"),
-                    uuid = o.optStringOrNull("uuid"),
-                    xhttpMode = o.optStringOrNull("xhttpMode"),
-                    pcs = o.optStringOrNull("pcs"),
-                    security = o.optStringOrNull("security"),
-                    alpn = o.optStringOrNull("alpn"),
-                    encryption = o.optStringOrNull("encryption"),
-                    hostHeader = o.optStringOrNull("hostHeader"),
-                    fp = o.optStringOrNull("fp"),
-                    allowInsecure = o.optBoolean("allowInsecure", false),
-                    payload = o.optStringOrNull("payload"),
-                    proxyHost = o.optStringOrNull("proxyHost"),
-                    proxyPort = if (o.has("proxyPort") && !o.isNull("proxyPort")) o.getInt("proxyPort") else null,
-                    nameserver = o.optStringOrNull("nameserver"),
-                    publicKey = o.optStringOrNull("publicKey"),
-                    bhttpUploadSlots = if (o.has("bhttpUploadSlots")) o.getInt("bhttpUploadSlots") else 16,
-                    bhttpDownloadSlots = if (o.has("bhttpDownloadSlots")) o.getInt("bhttpDownloadSlots") else 32,
-                    bhttpDownloadChunk = o.optInt("bhttpDownloadChunk", 50000),
-                    bhttpConnectMs = o.optInt("bhttpConnectMs", 10000),
-                    bhttpReadMs = o.optInt("bhttpReadMs", 25000),
-                    bhttpProbeMs = o.optInt("bhttpProbeMs", 5000),
-                    bhttpMaxAttempts = o.optInt("bhttpMaxAttempts", 10),
-                    bhttpRetryBackoffMs = o.optInt("bhttpRetryBackoffMs", 150),
-                    sni = o.optStringOrNull("sni"),
-                    dns1 = o.optStringOrNull("dns1"),
-                    dns2 = o.optStringOrNull("dns2"),
-                    urlCheckUser = o.optStringOrNull("urlCheckUser")
-                )
-            )
-        }
-        return result
+    private val PROFILES_JSON: String by lazy {
+        String(Base64.decode(PROFILES_PARTS.joinToString(""), Base64.DEFAULT), Charsets.UTF_8)
     }
 
+    private const val REMOTE_FILE = "profiles_remote.json"
+
+    /** Resultado de [applyRemote]. */
+    sealed class ApplyResult {
+        data class Updated(val version: String, val profileCount: Int) : ApplyResult()
+        data class UpToDate(val localVersion: String, val remoteVersion: String) : ApplyResult()
+        data class Invalid(val reason: String) : ApplyResult()
+    }
+
+    private class ParsedConfig(val version: String, val profiles: List<ServerProfile>)
+
+    private val lock = Any()
+
+    @Volatile private var initialized = false
+    @Volatile private var storageDir: File? = null
+    @Volatile private var current: ParsedConfig? = null
+
+    /** Config embutida no app (fallback). */
+    private val embedded: ParsedConfig by lazy { parseConfig(PROFILES_JSON) }
+
     /**
-     * Perfis pra exibir no menu do app: filtra os marcados como visible=false
-     * (ex: o perfil reservado de SlowDNS, que fica no arquivo mas some da UI
-     * até você ativar visible/active quando implementar o motor).
+     * Carrega a config salva da última atualização online (se existir e for
+     * mais nova que a embutida). Pode ser chamado várias vezes.
      */
-    fun getMenuProfiles(): List<ServerProfile> =
-        getAllProfiles().filter { it.visible && it.active }
+    fun init(context: Context) {
+        if (initialized) return
+        synchronized(lock) {
+            if (initialized) return
+            val dir = context.applicationContext.filesDir
+            storageDir = dir
+            var loaded: ParsedConfig = embedded
+            try {
+                val f = File(dir, REMOTE_FILE)
+                if (f.isFile) {
+                    val saved = parseConfig(f.readText(Charsets.UTF_8))
+                    if (compareVersions(saved.version, embedded.version) > 0) loaded = saved
+                }
+            } catch (_: Exception) {
+                // arquivo salvo corrompido: segue com a config embutida
+            }
+            current = loaded
+            initialized = true
+        }
+    }
+
+    /** Versão da config em uso (salva ou embutida). */
+    fun currentVersion(): String = (current ?: embedded).version
+
     /**
-     * Perfis do mesmo grupo de rotate automático — reaproveita o campo
-     * `category` que já existe (ex.: "TIM" agrupa TIM/TIM 2/TIM 3; "VIVO"
-     * agrupa todos os perfis VIVO, mesmo misturando SSH_DIRECT e
-     * SSL_PROXY). Não introduzimos um campo novo porque `category` já
-     * cumpre esse papel sem duplicar informação no JSON.
-     *
-     * A ordem retornada é a mesma ordem de declaração no JSON — o service
-     * usa essa ordem pra decidir "próximo servidor" no rotate.
+     * Valida e aplica a config remota (mesmo formato do JSON embutido).
+     * Só aplica se a "version" remota for maior que a atual.
      */
-    fun getProfilesInGroup(category: String): List<ServerProfile> =
-        getMenuProfiles().filter { it.category == category }
+    fun applyRemote(text: String): ApplyResult {
+        val remote: ParsedConfig = try {
+            parseConfig(text)
+        } catch (e: Exception) {
+            return ApplyResult.Invalid("JSON inválido: ${e.message}")
+        }
+
+        return synchronized<ApplyResult>(lock) {
+            val local = current ?: embedded
+            if (compareVersions(remote.version, local.version) <= 0) {
+                return@synchronized ApplyResult.UpToDate(local.version, remote.version)
+            }
+            try {
+                persist(text)
+            } catch (e: Exception) {
+                return@synchronized ApplyResult.Invalid("falha ao salvar config: ${e.message}")
+            }
+            current = remote
+            ApplyResult.Updated(remote.version, remote.profiles.size)
+        }
+    }
+
+    private fun persist(text: String) {
+        val dir = storageDir ?: return // sem init(): aplica só em memória
+        val target = File(dir, REMOTE_FILE)
+        val tmp = File(dir, "$REMOTE_FILE.tmp")
+        tmp.writeText(text, Charsets.UTF_8)
+        if (!tmp.renameTo(target)) {
+            target.delete()
+            if (!tmp.renameTo(target)) {
+                tmp.delete()
+                throw java.io.IOException("não foi possível gravar $REMOTE_FILE")
+            }
+        }
+    }
+
+    /** Compara versões "1.0", "1.2.3" etc. Retorna >0 se a > b. */
+    private fun compareVersions(a: String, b: String): Int {
+        val pa = a.trim().split('.').map { it.trim().toIntOrNull() ?: 0 }
+        val pb = b.trim().split('.').map { it.trim().toIntOrNull() ?: 0 }
+        for (i in 0 until maxOf(pa.size, pb.size)) {
+            val x = pa.getOrElse(i) { 0 }
+            val y = pb.getOrElse(i) { 0 }
+            if (x != y) return x.compareTo(y)
+        }
+        return 0
+    }
+
+    private fun parseConfig(json: String): ParsedConfig {
+        val trimmed = json.trim()
+        val root: JSONObject =
+            if (trimmed.startsWith("[")) JSONArray(trimmed).getJSONObject(0) else JSONObject(trimmed)
+
+        val version = root.optString("version", "").trim()
+        if (version.isEmpty()) throw IllegalArgumentException("campo 'version' ausente")
+
+        val arr = root.optJSONArray("profiles")
+            ?: throw IllegalArgumentException("campo 'profiles' ausente")
+        if (arr.length() == 0) throw IllegalArgumentException("lista 'profiles' vazia")
+
+        val result = mutableListOf<ServerProfile>()
+        for (i in 0 until arr.length()) {
+            result.add(parseProfile(arr.getJSONObject(i)))
+        }
+        return ParsedConfig(version, result)
+    }
+
+    private fun parseProfile(o: JSONObject): ServerProfile {
+        return ServerProfile(
+            name = o.getString("name"),
+            description = o.optString("description", ""),
+            mode = ServerMode.valueOf(o.getString("mode")),
+            category = o.optString("category", ""),
+            active = o.optBoolean("active", true),
+            visible = o.optBoolean("visible", true),
+            server = o.getString("server"),
+            port = o.getInt("port"),
+            uuid = o.optStringOrNull("uuid"),
+            xhttpMode = o.optStringOrNull("xhttpMode"),
+            pcs = o.optStringOrNull("pcs"),
+            security = o.optStringOrNull("security"),
+            alpn = o.optStringOrNull("alpn"),
+            encryption = o.optStringOrNull("encryption"),
+            hostHeader = o.optStringOrNull("hostHeader"),
+            fp = o.optStringOrNull("fp"),
+            allowInsecure = o.optBoolean("allowInsecure", false),
+            payload = o.optStringOrNull("payload"),
+            proxyHost = o.optStringOrNull("proxyHost"),
+            proxyPort = if (o.has("proxyPort") && !o.isNull("proxyPort")) o.getInt("proxyPort") else null,
+            nameserver = o.optStringOrNull("nameserver"),
+            publicKey = o.optStringOrNull("publicKey"),
+            bhttpUploadSlots = o.optInt("bhttpUploadSlots", 16),
+            bhttpDownloadSlots = o.optInt("bhttpDownloadSlots", 32),
+            bhttpDownloadChunk = o.optInt("bhttpDownloadChunk", 50000),
+            bhttpConnectMs = o.optInt("bhttpConnectMs", 10000),
+            bhttpReadMs = o.optInt("bhttpReadMs", 25000),
+            bhttpProbeMs = o.optInt("bhttpProbeMs", 5000),
+            bhttpMaxAttempts = o.optInt("bhttpMaxAttempts", 10),
+            bhttpRetryBackoffMs = o.optInt("bhttpRetryBackoffMs", 150),
+            sni = o.optStringOrNull("sni"),
+            dns1 = o.optStringOrNull("dns1"),
+            dns2 = o.optStringOrNull("dns2"),
+            urlCheckUser = o.optStringOrNull("urlCheckUser")
+        )
+    }
+
+    fun getAllProfiles(): List<ServerProfile> = (current ?: embedded).profiles
+
+    fun getMenuProfiles(): List<ServerProfile> {
+        return getAllProfiles().filter { profile: ServerProfile -> profile.visible && profile.active }
+    }
+
+    @Suppress("unused")
+    fun getProfilesInGroup(categoryGroup: String): List<ServerProfile> {
+        return getMenuProfiles().filter { profile: ServerProfile -> profile.category == categoryGroup }
+    }
 
     private fun JSONObject.optStringOrNull(key: String): String? =
         if (has(key) && !isNull(key)) getString(key) else null
