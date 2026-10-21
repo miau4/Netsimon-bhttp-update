@@ -1,5 +1,5 @@
 {
-  "version": "1.4",
+  "version": "1.5",
   "profiles": [
     {
       "name": "TIM 1",
@@ -9,7 +9,7 @@
       "active": true,
       "visible": true,
       "server": "151.244.242.115",
-      "port": "7100#7200#80#8080",
+      "port": "80#8080#7100#7200",
       "dns1": "8.8.8.8",
       "dns2": "8.8.4.4",
       "urlCheckUser": null,
