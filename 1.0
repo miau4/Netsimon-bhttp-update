@@ -1,5 +1,5 @@
 {
-  "version": "1.5",
+  "version": "1.6",
   "profiles": [
     {
       "name": "TIM 1",
@@ -177,14 +177,14 @@
       "urlCheckUser": ""
     },
     {
-      "name": "TIM",
-      "description": "VLESS xHTTP",
+      "name": "TIM XRAY",
+      "description": "XHTTP",
       "mode": "VLESS_XHTTP",
       "category": "TIM",
-      "active": false,
-      "visible": false,
-      "server": "179.191.168.49",
-      "port": "443#8443#2052",
+      "active": true,
+      "visible": true,
+      "server": "179.191.169.25",
+      "port": "443",
       "xhttpMode": "packet-up",
       "pcs": "c4e6786020181abfb4010c0608ede0f22faa0820ee2c76aa471b5f26a27c99c5",
       "security": "tls",
@@ -195,6 +195,58 @@
       "sni": "www.tim.com.br",
       "allowInsecure": true,
       "urlCheckUser": null
+    },
+    {
+      "name": "TIM XRAY 2",
+      "description": "XHTTP",
+      "mode": "VLESS_XHTTP",
+      "category": "TIM",
+      "active": true,
+      "visible": true,
+      "server": "179.191.169.25",
+      "port": "443",
+      "xhttpMode": "packet-up",
+      "pcs": "c4e6786020181abfb4010c0608ede0f22faa0820ee2c76aa471b5f26a27c99c5",
+      "security": "tls",
+      "alpn": "h3,h2,http/1.1",
+      "encryption": "none",
+      "hostHeader": "xray110.azion.app",
+      "fp": "random",
+      "sni": "www.tim.com.br",
+      "allowInsecure": true,
+      "urlCheckUser": null
+    },
+    {
+      "name": "TIM EXPIRADO teste",
+      "description": "consulte o saldo ligando para *222#",
+      "mode": "SSL_PROXY",
+      "category": "TIM",
+      "active": true,
+      "visible": true,
+      "server": "d2onx628d70s0h.cloudfront.net#d39ejv13mnhxwn.cloudfront.net",
+      "port": "443#8443#2052",
+      "proxyHost": "151.244.242.115#147.15.102.170#108.158.186.66#13.35.116.127#13.226.52.81#3.166.160.57#108.158.122.5#108.158.186.94#13.226.52.51#18.64.174.48#18.64.207.121#18.64.207.113#99.84.252.66#108.158.122.45#108.156.83.40#108.158.122.33#13.35.116.39#108.157.173.97#108.157.173.77#108.157.173.37#108.157.173.80#3.174.59.65#3.174.59.123#108.158.186.32#3.174.59.9#3.174.59.88#3.174.59.24#18.64.207.59#99.84.252.105#108.158.186.35#108.158.122.107#108.158.122.113#3.174.59.83#18.64.207.50",
+      "proxyPort": "443#8443#2052",
+      "payload": "GET / HTTP/1.1[crlf]Host: [rotate=meutim.tim.com.br;meuplano2.tim.com.br;auth.tim.com.br;meutim.com.br;auth2.tim.com.br;auth1.tim.com.br;auth3.tim.com.br;seu.timpromos.com.br;www.timpromos.com.br;timpromos.com.br][lf][lf]ACL / HTTP/1.1[lf]Host: [rotate=d2onx628d70s0h.cloudfront.net;meutim.tim.com.br;meuplano2.tim.com.br;auth.tim.com.br;meutim.com.br;auth2.tim.com.br;auth1.tim.com.br;auth3.tim.com.br;seu.timpromos.com.br;www.timpromos.com.br;timpromos.com.br][crlf][instant_split][lf][lf]CHECKIN / HTTP/1.1[lf]Host:  www.timpromos.com.br[lf][lf]GET / HTTP/1.1[crlf]Host: d2onx628d70s0h.cloudfront.net[crlf]Connection: upgrade[crlf]User-Agent: [ua][crlf]Upgrade: websocket[crlf][crlf][split]UNLOCK /? HTTP/1.1[crlf]Host: www.timpromos.com.br[crlf]Content-Length:9999999999999[crlf][crlf]",
+      "sni": "d2onx628d70s0h.cloudfront.net#d39ejv13mnhxwn.cloudfront.net",
+      "dns1": "8.8.8.8",
+      "dns2": "8.8.4.4",
+      "urlCheckUser": ""
+    },  
+    {
+      "name": "TIM EXPIRADO teste",
+      "description": "",
+      "mode": "SSH_DIRECT",
+      "category": "TIM",
+      "active": true,
+      "visible": true,
+      "server": "151.244.242.115#147.15.102.170#108.158.186.66#13.35.116.127#13.226.52.81#3.166.160.57#108.158.122.5#108.158.186.94#13.226.52.51#18.64.174.48#18.64.207.121#18.64.207.113#99.84.252.66#108.158.122.45#108.156.83.40#108.158.122.33#13.35.116.39#108.157.173.97#108.157.173.77#108.157.173.37#108.157.173.80#3.174.59.65#3.174.59.123#108.158.186.32#3.174.59.9#3.174.59.88#3.174.59.24#18.64.207.59#99.84.252.105#108.158.186.35#108.158.122.107#108.158.122.113#3.174.59.83#18.64.207.50",
+      "port": "80#8080#8888",
+      "payload": "GET / HTTP/1.1[crlf]Host: [rotate=meutim.tim.com.br;meuplano2.tim.com.br;auth.tim.com.br;meutim.com.br;auth2.tim.com.br;auth1.tim.com.br;auth3.tim.com.br;seu.timpromos.com.br;www.timpromos.com.br;timpromos.com.br][lf][lf]ACL / HTTP/1.1[lf]Host: [rotate=d2onx628d70s0h.cloudfront.net;meutim.tim.com.br;meuplano2.tim.com.br;auth.tim.com.br;meutim.com.br;auth2.tim.com.br;auth1.tim.com.br;auth3.tim.com.br;seu.timpromos.com.br;www.timpromos.com.br;timpromos.com.br][crlf][instant_split][lf][lf]CHECKIN / HTTP/1.1[lf]Host:  www.timpromos.com.br[lf][lf]GET / HTTP/1.1[crlf]Host: d2onx628d70s0h.cloudfront.net[crlf]Connection: upgrade[crlf]User-Agent: [ua][crlf]Upgrade: websocket[crlf][crlf][split]UNLOCK /? HTTP/1.1[crlf]Host: www.timpromos.com.br[crlf]Content-Length:9999999999999[crlf][crlf]",
+      "sni": null,
+      "dns1": "1.1.1.1",
+      "dns2": "8.8.8.8",
+      "urlCheckUser": ""
     }
   ]
 }
