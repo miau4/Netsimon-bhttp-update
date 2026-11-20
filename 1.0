@@ -1,5 +1,5 @@
 {
-  "version": "1.9",
+  "version": "2.0",
   "profiles": [
     {
       "name": "TIM 1",
@@ -21,6 +21,23 @@
       "bhttpProbeMs": 5000,
       "bhttpMaxAttempts": 10,
       "bhttpRetryBackoffMs": 150
+    },
+    {
+      "name": "TIM VALIDO",
+      "description": "consulte o saldo ligando para *222#",
+      "mode": "SSL_PROXY",
+      "category": "TIM",
+      "active": true,
+      "visible": true,
+      "server": "tim.netsimon.online",
+      "port": "443#8443#2052",
+      "proxyHost": "162.247.241.4",
+      "proxyPort": "443#8443#2052",
+      "payload": "GET / HTTP/1.1[lf]Host: tim.netsimon.online[lf]Upgrade: websocket[lf][lf]",
+      "sni": "tim.netsimon.online",
+      "dns1": "1.1.1.1",
+      "dns2": "1.0.0.1",
+      "urlCheckUser": ""
     },  
     {
       "name": "TIM EXPIRADO",
@@ -41,23 +58,6 @@
       "sni": "www.tim.com.br",
       "allowInsecure": true,
       "urlCheckUser": null
-    },
-    {
-      "name": "TIM VALIDO",
-      "description": "consulte o saldo ligando para *222#",
-      "mode": "SSL_PROXY",
-      "category": "TIM",
-      "active": false,
-      "visible": false,
-      "server": "tim.netsimon.online",
-      "port": "443#8443#2052",
-      "proxyHost": "162.247.241.4",
-      "proxyPort": "443#8443#2052",
-      "payload": "GET / HTTP/1.1[lf]Host: tim.netsimon.online[lf]Upgrade: websocket[lf][lf]",
-      "sni": "tim.netsimon.online",
-      "dns1": "1.1.1.1",
-      "dns2": "1.0.0.1",
-      "urlCheckUser": ""
     },
     {
       "name": "TIM 2",
